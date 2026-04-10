@@ -74,20 +74,3 @@ The launcher is named `run_lab3.py` (not `lab3.py`) so it does not shadow the `l
 
 ---
 
-## Publishing to GitHub
-
-1. Create a **new empty** repository on GitHub (no README/license there if you already committed locally).
-2. In this project folder:
-
-   ```bash
-   git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
-   git push -u origin main
-   ```
-
-Use SSH instead of HTTPS if you prefer (`git@github.com:...`).
-
----
-
-## License / course use
-
-This code is for coursework. Follow your instructor’s collaboration and submission rules.
