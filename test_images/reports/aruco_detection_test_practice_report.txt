@@ -1,0 +1,21 @@
+Detected 2 marker(s) in aruco_detection_test_practice.png
+
+  ID 0: translation (camera frame) [m] = (0.1570, -0.1004, 0.5422)
+           T_cam_marker =
+[[-0.97984449 -0.12287412 -0.15750151  0.15699048]
+ [-0.13068663  0.99060815  0.04020575 -0.1003775 ]
+ [ 0.15108204  0.05997873 -0.98669994  0.54220642]
+ [ 0.          0.          0.          1.        ]]
+
+  ID 5: translation (camera frame) [m] = (0.0865, -0.0836, 0.4890)
+           T_cam_marker =
+[[-9.93454185e-01 -1.14230269e-01  4.76845612e-04  8.64967157e-02]
+ [-1.14219409e-01  9.93402567e-01  1.02599107e-02 -8.36336481e-02]
+ [-1.64569201e-03  1.01382862e-02 -9.99947252e-01  4.88987776e-01]
+ [ 0.00000000e+00  0.00000000e+00  0.00000000e+00  1.00000000e+00]]
+
+
+Annotated image saved: test_images/annotated/aruco_detection_test_practice_annotated.png
+
+
+Report saved: test_images/reports/aruco_detection_test_practice_report.txt
