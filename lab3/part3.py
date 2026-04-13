@@ -51,10 +51,21 @@ class HanoiSolver:
         """
         raise NotImplementedError("Implement marker_search for Lab 3 Part 3.")
 
-    def solve_tower_of_hanoi(self) -> None:
-        """
-        Plan and execute moves from tower 0 to tower 2 using Part 1 / Part 2 utilities.
+    def TowerOfHanoi(self, n, fromRod, toRod, auxRod):
+        if n == 0:
+            return
+        yield from self.TowerOfHanoi(n - 1, fromRod, auxRod, toRod)
+        yield (fromRod, toRod)
+        yield from self.TowerOfHanoi(n - 1, auxRod, toRod, fromRod)
 
-        Use block widths (0.06, 0.10, 0.12 m) and grasp along x as recommended.
-        """
-        raise NotImplementedError("Implement solve_tower_of_hanoi for Lab 3 Part 3.")
+if __name__ == "__main__":
+    n = 3
+
+    # A, C, B are the name of rods
+    solver = HanoiSolver()
+    solver.TowerOfHanoi(n, 'A', 'C', 'B')
+
+if __name__ == "__main__":
+    n = 3
+    for fromRod, toRod in solver.TowerOfHanoi(n, 'A', 'C', 'B'):
+        print(f"Move disk from {fromRod} to {toRod}")
