@@ -1,7 +1,5 @@
 """ArUco detection and pose in the camera frame (Lab 3 Part 1)."""
 
-from __future__ import annotations
-
 from typing import NamedTuple
 
 import cv2
@@ -31,10 +29,10 @@ class ArucoDetectionResult(NamedTuple):
 
 class ArucoDetector:
     """
-    Detect ArUco markers (``DICT_ARUCO_ORIGINAL``) and estimate each pose w.r.t. the camera.
+    Detect ArUco markers (DICT_ARUCO_ORIGINAL) and estimate each pose w.r.t. the camera.
 
-    ``find_tags`` returns transforms ``T_cam_marker`` (4×4) consistent with OpenCV’s pose:
-    homogeneous marker coordinates map to the camera frame as ``p_c = T[:3,:3] @ p_m + T[:3,3]``.
+    'find_tags' returns transforms 'T_cam_marker' (4×4) consistent with OpenCV’s pose:
+    homogeneous marker coordinates map to the camera frame as p_c = T[:3,:3] @ p_m + T[:3,3].
     """
 
     def __init__(
@@ -60,12 +58,8 @@ class ArucoDetector:
     def detect_full(self, frame: npt.NDArray[np.uint8]) -> ArucoDetectionResult:
         """
         Detect markers, estimate poses, and return data needed for reports and overlays.
-
-        Parameters
-        ----------
-        frame
-            BGR or grayscale image (OpenCV convention).
         """
+
         gray = frame if frame.ndim == 2 else cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         corners, ids, _ = self._detector.detectMarkers(gray)
 
@@ -104,12 +98,12 @@ class ArucoDetector:
         )
 
     def find_tags(self, frame: npt.NDArray[np.uint8]) -> list[DetectedMarker]:
-        """
-        Detect visible ArUco markers and return each ID with ``T_cam_marker`` (4×4).
+        """Detect visible ArUco markers and return each ID with 'T_cam_marker' (4×4).
 
-        Parameters
-        ----------
-        frame
-            BGR or grayscale image (OpenCV convention).
+        Args:
+            frame: BGR or grayscale image (OpenCV convention).
+
+        Returns:
+            List of detected markers with their poses.
         """
         return self.detect_full(frame).markers

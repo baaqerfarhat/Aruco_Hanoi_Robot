@@ -1,6 +1,5 @@
 """Lab 3 Part 1 — practice image runner (ArUco in the loop)."""
 
-from __future__ import annotations
 
 import logging
 import sys
@@ -20,9 +19,6 @@ logger = logging.getLogger(__name__)
 class Part1PracticeRunner:
     """
     Loads the handout practice image, runs :class:`~lab3.aruco.ArucoDetector`, prints poses.
-
-    Expected (handout): IDs 0 and 5; translations roughly
-    (0.157, -0.100, 0.542) and (0.0865, -0.0836, 0.489); rotation ~π about y.
     """
 
     def __init__(self, detector: ArucoDetector | None = None) -> None:
@@ -53,11 +49,7 @@ class Part1PracticeRunner:
         """
         Load an image from disk, detect markers, optionally save overlay and report files.
 
-        Returns
-        -------
-        (markers, error, annotated_path, report_path)
-            ``markers`` is ``None`` if the file is missing or could not be decoded;
-            ``annotated_path`` / ``report_path`` are set when those files were written.
+        Returns: (markers, error, annotated_path, report_path)
         """
         if not image_path.is_file():
             return None, f"File not found: {repo_relative(image_path)}", None, None

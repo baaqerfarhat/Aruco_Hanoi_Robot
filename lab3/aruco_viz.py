@@ -1,7 +1,5 @@
 """Draw ArUco detections and pose axes on BGR images."""
 
-from __future__ import annotations
-
 import cv2
 import numpy as np
 import numpy.typing as npt
