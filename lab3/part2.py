@@ -1,11 +1,16 @@
 """
 Lab 3 Part 2 — parallel-jaw grasping from an ArUco-tagged prism.
 
-Implement ``get_grasp_pose`` per the handout: ArUco in the bottom-left corner of the prism,
-block center in the +x / +y quadrant of the marker frame, prism thickness ~5 cm, gripper
-center 20 cm along z from the last classical-DH frame, correct end-effector orientation.
+Geometry (from the handout):
+  * ArUco tag at the **bottom-left** corner of the prism → block center is at
+    ``(+width/2, +width/2, 0)`` in the marker frame.
+  * Prisms have a thickness of ~5 cm.
+  * The gripper center is 20 cm along z from the last classical-DH frame (tool offset used
+    when calling IK: ``Ttp_pen = trans_z(0.20)``).
+  * The gripper approaches from above with its z-axis pointing **down** (i.e. opposite the
+    marker z-axis that points out of the tag surface).
 
-Import FK/IK helpers from your earlier labs (e.g. Lab 1 URX utilities) here when needed.
+Robot kinematics live in :mod:`lab3.ur10e_kinematics`.
 """
 
 from __future__ import annotations
@@ -13,10 +18,7 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
-# Nominal prism thickness [m] (handout ~5 cm).
 PRISM_THICKNESS_M: float = 0.05
-
-# Distance from last classical-DH frame to gripper center along that frame’s z-axis [m].
 GRIPPER_OFFSET_FROM_LAST_FRAME_M: float = 0.20
 
 
@@ -25,7 +27,7 @@ def get_grasp_pose(
     prism_width_m: float,
 ) -> npt.NDArray[np.float64]:
     """
-    Compute :math:`T_{base}^{gripper}` (4×4) for an open parallel-jaw gripper ready to close on the prism.
+    Compute :math:`T_{base}^{gripper}` (4×4) for a top-down parallel-jaw grasp of the prism.
 
     Parameters
     ----------
@@ -37,13 +39,24 @@ def get_grasp_pose(
     Returns
     -------
     ndarray
-        :math:`T_{base}^{gripper}` (4×4, float64): base → gripper center in the open grasp pose.
-
-    Notes
-    -----
-    Handout geometry: tag at bottom-left; prism center lies in the +x, +y quadrant of the
-    marker frame; account for required gripper orientation and pre-grasp standoff from
-    Part 2 pre-lab.
+        4×4 ``T_base_gripper`` placing the gripper center at the block center,
+        oriented for a top-down grasp (gripper z pointing down, jaws along marker x).
     """
-    _ = (T_base_aruco, prism_width_m)
-    raise NotImplementedError("Implement get_grasp_pose for Lab 3 Part 2.")
+    T = np.asarray(T_base_aruco, dtype=np.float64).reshape(4, 4)
+    R_marker = T[:3, :3]
+
+    p_block_marker = np.array(
+        [prism_width_m / 2.0, prism_width_m / 2.0, -PRISM_THICKNESS_M / 2.0, 1.0],
+        dtype=np.float64,
+    )
+    p_block_base = (T @ p_block_marker)[:3]
+
+    # Rotate 180° about the marker x-axis so gripper z points down (into the block).
+    #   Rx(π) = diag(1, -1, -1)
+    # Resulting columns: x_g = marker_x, y_g = -marker_y, z_g = -marker_z.
+    R_grasp = R_marker @ np.diag([1.0, -1.0, -1.0])
+
+    T_base_gripper = np.eye(4, dtype=np.float64)
+    T_base_gripper[:3, :3] = R_grasp
+    T_base_gripper[:3, 3] = p_block_base
+    return T_base_gripper
