@@ -100,6 +100,49 @@ def pose6_to_T(pose6: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     T[:3, 3] = p
     return T
 
+def pose6_to_T_euler(pose6: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """[x, y, z, roll, pitch, yaw] -> 4x4 homogeneous transform.
+
+    Uses roll-pitch-yaw Euler angles with the common convention:
+        R = Rz(yaw) @ Ry(pitch) @ Rx(roll)
+
+    That means:
+      - roll  rotates about x
+      - pitch rotates about y
+      - yaw   rotates about z
+    """
+    pose6 = np.asarray(pose6, dtype=np.float64).reshape(6)
+    x, y, z, roll, pitch, yaw = pose6
+
+    cr, sr = np.cos(roll), np.sin(roll)
+    cp, sp = np.cos(pitch), np.sin(pitch)
+    cy, sy = np.cos(yaw), np.sin(yaw)
+
+    Rx = np.array([
+        [1, 0, 0],
+        [0, cr, -sr],
+        [0, sr,  cr],
+    ], dtype=np.float64)
+
+    Ry = np.array([
+        [cp, 0, sp],
+        [0,  1, 0],
+        [-sp, 0, cp],
+    ], dtype=np.float64)
+
+    Rz = np.array([
+        [cy, -sy, 0],
+        [sy,  cy, 0],
+        [0,   0,  1],
+    ], dtype=np.float64)
+
+    R = Rz @ Ry @ Rx
+
+    T = np.eye(4, dtype=np.float64)
+    T[:3, :3] = R
+    T[:3, 3] = np.array([x, y, z], dtype=np.float64)
+    return T
+
 
 def T_to_pose6(T: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     T = np.asarray(T, dtype=np.float64).reshape(4, 4)
