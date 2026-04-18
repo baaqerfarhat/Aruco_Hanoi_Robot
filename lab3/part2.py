@@ -17,9 +17,14 @@ from __future__ import annotations
 
 import numpy as np
 import numpy.typing as npt
+from lab3.ur10e_kinematics import pose6_to_T, trans_z, rot_x
+from lab3.part1 import Part1PracticeRunner
+from lab3.paths import PRACTICE_IMAGE_NAME, default_practice_image_path
 
 PRISM_THICKNESS_M: float = 0.05
-GRIPPER_OFFSET_FROM_LAST_FRAME_M: float = 0.20
+GRIPPER_OFFSET_FROM_LAST_FRAME_M: float = 0.2098 # distance from last classical-DH frame to gripper center along z, in meters
+W_MAX = 0.14 # maximum width of the gripper jaws in meters
+DELTA_Z_MAX_GRIPPER = 0.0235 # maximum z displacement in gripper frame from fully open to fully closed, in meters
 
 
 def get_grasp_pose(
@@ -42,21 +47,30 @@ def get_grasp_pose(
         4×4 ``T_base_gripper`` placing the gripper center at the block center,
         oriented for a top-down grasp (gripper z pointing down, jaws along marker x).
     """
-    T = np.asarray(T_base_aruco, dtype=np.float64).reshape(4, 4)
-    R_marker = T[:3, :3]
+    T_base_aruco = np.asarray(T_base_aruco, dtype=np.float64).reshape(4, 4)
+    T_base_box_bottom_center = T_base_aruco @ pose6_to_T(np.array([prism_width_m / 2.0, prism_width_m / 2.0,
+                                                                   -PRISM_THICKNESS_M, 0, 0, 0]))
 
-    p_block_marker = np.array(
-        [prism_width_m / 2.0, prism_width_m / 2.0, -PRISM_THICKNESS_M / 2.0, 1.0],
-        dtype=np.float64,
-    )
-    p_block_base = (T @ p_block_marker)[:3]
+    p = 100 * (W_MAX - prism_width_m) / W_MAX
+    delta_z_tip = p * DELTA_Z_MAX_GRIPPER / 100.0
+    T_base_gripper_open = T_base_box_bottom_center @ trans_z(GRIPPER_OFFSET_FROM_LAST_FRAME_M + delta_z_tip) @ rot_x(np.pi)
+    return T_base_gripper_open
 
-    # Rotate 180° about the marker x-axis so gripper z points down (into the block).
-    #   Rx(π) = diag(1, -1, -1)
-    # Resulting columns: x_g = marker_x, y_g = -marker_y, z_g = -marker_z.
-    R_grasp = R_marker @ np.diag([1.0, -1.0, -1.0])
 
-    T_base_gripper = np.eye(4, dtype=np.float64)
-    T_base_gripper[:3, :3] = R_grasp
-    T_base_gripper[:3, 3] = p_block_base
-    return T_base_gripper
+if __name__ == "__main__":
+    practice_runner = Part1PracticeRunner()
+    image_path = default_practice_image_path()
+    markers, error, annotated_path, report_path = practice_runner.find_markers_in_file(image_path, save_annotated=False)
+
+    T_base_camera = pose6_to_T(np.array([0.0, -0.4, 0.4, np.pi, 0, np.pi], dtype=np.float64))
+    practice_width = 0.1
+
+    for marker in markers or []:
+        print(f"Marker ID {marker.marker_id}:")
+        T_base_marker = T_base_camera @ marker.T_cam_marker
+        print(f"T_base_marker:\n{T_base_marker}")
+        T_base_gripper = get_grasp_pose(T_base_marker, practice_width)
+        print(f"T_base_gripper:\n{T_base_gripper}")
+
+    if error is not None:
+        print(f"Error: {error}")

@@ -1,10 +1,6 @@
 """
 UR10e forward and inverse kinematics (classical DH FK; analytical IK in modified DH).
 
-Ported from ``TrackingRobotMPC/src/ur10e.py`` and the numpy helpers in ``utils.py``
-(``dh_classical_tf``, rigid transforms, pose vectors). Use this module in Lab 3 Part 2
-and Part 3 for consistent FK/IK with your MPC stack.
-
 Conventions
 -----------
 * :meth:`UR10eKinematics.fk` expects **classical** DH joint angles in **degrees** (same as
@@ -150,21 +146,17 @@ def dh_classical_rad_to_modified_rad(theta_class: npt.NDArray[np.float64]) -> np
 
 
 def modified_joint_rad_to_classical_joint_deg(q_mod: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-    """IK (modified rad) → FK input (classical deg), matching MPC ``__main__`` round-trip."""
     return np.rad2deg(dh_modified_to_classical_rad(q_mod))
 
 
 class UR10eKinematics:
-    """
-    UR10e kinematics aligned with ``TrackingRobotMPC`` ``UR10e``.
-
-    Parameters ``Tb0`` and ``T6tp`` match the MPC instance (base→DH frame 0, joint-6→TCP).
-    """
 
     def __init__(self) -> None:
         self.dof = 6
         self.Tb0 = trans_z(0.1807)
         self.T6tp = trans_z(0.11655)
+        # TODO: THERE MIGHT BE NO ROTATION NEEDED IN THE TRANSFORM BELOW
+        self.Ttp_gripper = pose6_to_T(np.array([0.0, 0.0, 0, 0.0, 0.0, np.pi/2], dtype=np.float64)) # rotation of gripper 90 degrees relative to flange
 
     def get_classical_dh_parameters(self, joint_angles_deg: npt.NDArray[np.float64]) -> DHParameters:
         alpha = [90.0, 0.0, 0.0, 90.0, -90.0, 0.0]
@@ -207,10 +199,7 @@ class UR10eKinematics:
         n_frames: int = 6,
     ) -> npt.NDArray[np.float64]:
         """
-        FK chain through the first ``n_frames`` DH transforms (1–6), **excluding** Tb0.
-
-        ``n_frames=5`` gives T_0_5 (frame 5 in classical DH), which is what the Lab 3 handout
-        needs for the camera extrinsic ``T_5_cam``.
+        FK chain through the first n_frames DH transforms (1–6)
         """
         if not 1 <= n_frames <= 6:
             raise ValueError(f"n_frames must be 1..6, got {n_frames}")
@@ -233,39 +222,17 @@ class UR10eKinematics:
     def fk(
         self,
         theta_classical_deg: npt.NDArray[np.float64],
-        Ttp_pen: npt.NDArray[np.float64] | None = trans_z(0.3),
     ) -> npt.NDArray[np.float64]:
         """
-        Forward kinematics: DH frame 0 → tool, **excluding** ``Tb0``.
-
-        Joint vector is **classical** DH in **degrees** (same as MPC ``UR10e.FK``).
+        Forward kinematics: DH frame 0 → frame 6 (flange), with classical DH angles in degrees.
         """
         T = self.fk_to_frame(theta_classical_deg, n_frames=6)
-        if Ttp_pen is not None:
-            T = T @ Ttp_pen
         return T
-
-    def fk_base(
-        self,
-        theta_classical_deg: npt.NDArray[np.float64],
-        Ttp_pen: npt.NDArray[np.float64] | None = trans_z(0.3),
-    ) -> npt.NDArray[np.float64]:
-        """``T_base_tool = Tb0 @ fk(...)`` (robot base frame)."""
-        return self.Tb0 @ self.fk(theta_classical_deg, Ttp_pen=Ttp_pen)
-
-    def fk_base_to_frame(
-        self,
-        theta_classical_deg: npt.NDArray[np.float64],
-        n_frames: int = 6,
-    ) -> npt.NDArray[np.float64]:
-        """``Tb0 @ fk_to_frame(...)`` — frame *n* in the **robot base** frame."""
-        return self.Tb0 @ self.fk_to_frame(theta_classical_deg, n_frames=n_frames)
 
     def ik(
         self,
         solution_type: str,
-        T_base_tp: npt.NDArray[np.float64],
-        Ttp_pen: npt.NDArray[np.float64] | None = trans_z(0.3),
+        T_base_gripper: npt.NDArray[np.float64],
     ) -> npt.NDArray[np.float64]:
         """
         Inverse kinematics (analytical, modified DH convention).
@@ -277,9 +244,7 @@ class UR10eKinematics:
         a = np.asarray(dh_parameters["a_i_prev"], dtype=np.float64)
         d = np.asarray(dh_parameters["d_i"], dtype=np.float64)
 
-        T_06 = np.linalg.inv(self.Tb0) @ T_base_tp @ np.linalg.inv(self.T6tp)
-        if Ttp_pen is not None:
-            T_06 = T_06 @ np.linalg.inv(Ttp_pen)
+        T_06 = np.linalg.inv(self.Tb0) @ T_base_gripper @ np.linalg.inv(self.Ttp_gripper) @ np.linalg.inv(self.T6tp)
 
         r11 = T_06[0, 0]
         r12 = T_06[0, 1]

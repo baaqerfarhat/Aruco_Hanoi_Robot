@@ -84,11 +84,6 @@ class HanoiSolver:
         return self._detector
 
     def camera_pose_base(self, q_classical_deg: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """
-        Compute :math:`T_{base}^{cam}` from the current joint angles.
-
-        Uses FK to frame 5 (not 6!) and the known ``T_5_cam`` extrinsic.
-        """
         T_base_5 = self._kin.fk_base_to_frame(q_classical_deg, n_frames=5)
         return T_base_5 @ T_5_cam
 
