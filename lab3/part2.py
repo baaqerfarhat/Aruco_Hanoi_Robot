@@ -1,18 +1,3 @@
-"""
-Lab 3 Part 2 — parallel-jaw grasping from an ArUco-tagged prism.
-
-Geometry (from the handout):
-  * ArUco tag at the **bottom-left** corner of the prism → block center is at
-    ``(+width/2, +width/2, 0)`` in the marker frame.
-  * Prisms have a thickness of ~5 cm.
-  * The gripper center is 20 cm along z from the last classical-DH frame (tool offset used
-    when calling IK: ``Ttp_pen = trans_z(0.20)``).
-  * The gripper approaches from above with its z-axis pointing **down** (i.e. opposite the
-    marker z-axis that points out of the tag surface).
-
-Robot kinematics live in :mod:`lab3.ur10e_kinematics`.
-"""
-
 from __future__ import annotations
 
 import numpy as np
@@ -22,57 +7,30 @@ from lab3.part1 import Part1PracticeRunner
 from lab3.paths import PRACTICE_IMAGE_NAME, default_practice_image_path
 
 PRISM_THICKNESS_M: float = 0.05
-GRIPPER_OFFSET_FROM_LAST_FRAME_M: float = 0.2098 # distance from last classical-DH frame to gripper center along z, in meters
-W_MAX = 0.14 # maximum width of the gripper jaws in meters
-DELTA_Z_MAX_GRIPPER = 0.0235 # maximum z displacement in gripper frame from fully open to fully closed, in meters
+GRIPPER_OFFSET_FROM_LAST_FRAME_M: float = 0.2098
+W_MAX = 0.14
+DELTA_Z_MAX_GRIPPER = 0.0235
 
 
 def get_grasp_pose(
     T_base_aruco: npt.NDArray[np.float64],
     prism_width_m: float,
 ) -> npt.NDArray[np.float64]:
-    """
-    Compute :math:`T_{base}^{gripper}` (4×4) for a top-down parallel-jaw grasp of the prism.
-
-    Parameters
-    ----------
-    T_base_aruco
-        Homogeneous transform of the ArUco marker frame relative to the robot base (4×4).
-    prism_width_m
-        Width of the rectangular prism the tag is attached to [m].
-
-    Returns
-    -------
-    ndarray
-        4×4 ``T_base_gripper`` placing the gripper center at the block center,
-        oriented for a top-down grasp (gripper z pointing down, jaws along marker x).
-    """
+    # Compute T_base_gripper for a top-down grasp of the prism.
+    # ArUco tag is at bottom-left corner; block center is at (+w/2, +w/2, -thickness).
     T_base_aruco = np.asarray(T_base_aruco, dtype=np.float64).reshape(4, 4)
     T_base_box_bottom_center = T_base_aruco @ pose6_to_T_euler(np.array([prism_width_m / 2.0, prism_width_m / 2.0,
                                                                    -PRISM_THICKNESS_M, 0, 0, 0]))
 
     p = calculate_gripper_percentage(prism_width_m)
     delta_z_tip = p * DELTA_Z_MAX_GRIPPER / 100.0
+    # Offset along z for gripper standoff, then flip 180 deg so gripper z points down
     T_base_gripper_open = T_base_box_bottom_center @ trans_z(GRIPPER_OFFSET_FROM_LAST_FRAME_M + delta_z_tip) @ rot_x(np.pi)
     return T_base_gripper_open
 
 
-def calculate_gripper_percentage(
-    prism_width_m: float,
-) -> float:
-    """
-    Calculate the percentage that the gripper should be closed based on the prism width.
-
-    Parameters
-    ----------
-    prism_width_m
-        Width of the rectangular prism the tag is attached to [m].
-
-    Returns
-    -------
-    float
-        Percentage (0-100) that the gripper should be closed, where 0% is fully open and 100% is fully closed.
-    """
+def calculate_gripper_percentage(prism_width_m: float) -> float:
+    # How much to close the gripper (0% = fully open, 100% = fully closed)
     if prism_width_m >= W_MAX:
         return 0.0
     elif prism_width_m <= 0.0:

@@ -1,6 +1,3 @@
-"""Lab 3 Part 1 — practice image runner (ArUco in the loop)."""
-
-
 import logging
 import sys
 from pathlib import Path
@@ -17,26 +14,18 @@ logger = logging.getLogger(__name__)
 
 
 class Part1PracticeRunner:
-    """
-    Loads the handout practice image, runs :class:`~lab3.aruco.ArucoDetector`, prints poses.
-    """
+    # Loads test images, runs ArUco detection, saves annotated overlays and reports.
 
     def __init__(self, detector: ArucoDetector | None = None) -> None:
         self._detector = detector or ArucoDetector()
 
-    @property
-    def detector(self) -> ArucoDetector:
-        return self._detector
-
     @staticmethod
     def annotated_output_path(source_image: Path) -> Path:
-        """Path for the saved overlay: ``test_images/annotated/<stem>_annotated.png``."""
         out_dir = ensure_annotated_images_dir()
         return out_dir / f"{source_image.stem}_annotated.png"
 
     @staticmethod
     def report_output_path(source_image: Path) -> Path:
-        """Path for the text report: ``test_images/reports/<stem>_report.txt``."""
         out_dir = ensure_detection_reports_dir()
         return out_dir / f"{source_image.stem}_report.txt"
 
@@ -46,11 +35,7 @@ class Part1PracticeRunner:
         *,
         save_annotated: bool = True,
     ) -> tuple[list[DetectedMarker] | None, str | None, Path | None, Path | None]:
-        """
-        Load an image from disk, detect markers, optionally save overlay and report files.
-
-        Returns: (markers, error, annotated_path, report_path)
-        """
+        # Returns (markers, error, annotated_path, report_path)
         if not image_path.is_file():
             return None, f"File not found: {repo_relative(image_path)}", None, None
 
@@ -78,11 +63,7 @@ class Part1PracticeRunner:
         cam = self._detector.camera.intrinsics
         axis_len = 0.5 * self._detector.camera.marker_side_length_m
         vis = draw_aruco_overlay(
-            frame_bgr,
-            detection,
-            cam.camera_matrix,
-            cam.dist_coeffs,
-            axis_length_m=axis_len,
+            frame_bgr, detection, cam.camera_matrix, cam.dist_coeffs, axis_length_m=axis_len,
         )
         out = self.annotated_output_path(source_path)
         ok = cv2.imwrite(str(out), vis)
@@ -99,10 +80,7 @@ class Part1PracticeRunner:
     ) -> Path | None:
         out = self.report_output_path(source_path)
         text = self.format_detection_report(
-            source_path,
-            markers,
-            annotated_path=annotated_path,
-            report_path=out,
+            source_path, markers, annotated_path=annotated_path, report_path=out,
         )
         try:
             out.write_text(text, encoding="utf-8", newline="\n")
@@ -119,7 +97,6 @@ class Part1PracticeRunner:
         annotated_path: Path | None = None,
         report_path: Path | None = None,
     ) -> str:
-        """Human-readable report (same content as console :meth:`run`), optional save lines."""
         lines: list[str] = [
             f"Detected {len(markers)} marker(s) in {image_path.name}",
             "",
@@ -145,9 +122,7 @@ class Part1PracticeRunner:
         ]
 
     def run(self, image_path: Path) -> int:
-        """
-        Return process exit code: 0 on success, non-zero on I/O or load errors.
-        """
+        # CLI entry point. Returns 0 on success, 1 on error.
         markers, err, ann, rep = self.find_markers_in_file(image_path, save_annotated=True)
         if err is not None:
             logger.error("%s", err)
@@ -160,8 +135,6 @@ class Part1PracticeRunner:
             return 1
 
         assert markers is not None
-        text = self.format_detection_report(
-            image_path, markers, annotated_path=ann, report_path=rep
-        )
+        text = self.format_detection_report(image_path, markers, annotated_path=ann, report_path=rep)
         print(text, end="")
         return 0
