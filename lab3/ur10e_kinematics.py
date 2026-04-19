@@ -236,7 +236,7 @@ class UR10eKinematics:
     def DHClassicaltoModified(self, theta_class: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         return dh_classical_rad_to_modified_rad(theta_class)
 
-    def fk_to_frame(
+    def fk_base_to_frame(
         self,
         theta_classical_deg: npt.NDArray[np.float64],
         n_frames: int = 6,
@@ -269,7 +269,7 @@ class UR10eKinematics:
         """
         Forward kinematics: DH frame 0 → frame 6 (flange), with classical DH angles in degrees.
         """
-        T = self.fk_to_frame(theta_classical_deg, n_frames=6)
+        T = self.fk_base_to_frame(theta_classical_deg, n_frames=6)
         return T
 
     def ik(
