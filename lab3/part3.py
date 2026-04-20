@@ -22,6 +22,8 @@ from lab3.ur10e_kinematics import (
 UR_IP = "192.168.0.2"
 
 BLOCK_HEIGHT_M: float = 0.05
+AJ = 0.8
+VJ = 0.6
 
 # Camera extrinsic relative to link 5
 T_5_cam: npt.NDArray[np.float64] = np.array(
@@ -39,8 +41,8 @@ BLOCK_WIDTHS_M: dict[int, float] = {3: 0.06, 4: 0.10, 5: 0.12}
 TOWER_SIDE_M: float = 0.20
 
 # Workspace bounds for marker search grid
-SEARCH_BOUNDS_MIN = np.array([-0.7, -1.0, -0.03], dtype=np.float64)
-SEARCH_BOUNDS_MAX = np.array([0.7, 0.0, 0.03], dtype=np.float64)
+SEARCH_BOUNDS_MIN = np.array([-0.5, -0.7, 0], dtype=np.float64)
+SEARCH_BOUNDS_MAX = np.array([0.5, -0.2, 0], dtype=np.float64)
 
 
 class HanoiSolver:
@@ -107,23 +109,25 @@ class HanoiSolver:
         markers = {}
         x_grid = np.linspace(SEARCH_BOUNDS_MIN[0], SEARCH_BOUNDS_MAX[0], 5)
         y_grid = np.linspace(SEARCH_BOUNDS_MIN[1], SEARCH_BOUNDS_MAX[1], 5)
-        z_view = 0.4
+        z_view = 0.8
 
         for x in x_grid:
             for y in y_grid:
                 # Camera looking straight down at (x, y, z_view)
-                T_base_cam_desired = np.eye(4, dtype=np.float64) @ rot_x(np.pi)
+                T_base_cam_desired = np.eye(4, dtype=np.float64) @ rot_x(np.pi * 0.99) # to prevent axis alignment singularity
                 T_base_cam_desired[:3, 3] = [x, y, z_view]
 
                 # Convert desired camera pose to gripper pose for IK
                 T_base_5_desired = T_base_cam_desired @ inv_T(T_5_cam)
                 T_base_gripper = T_base_5_desired @ self._kin.T6tp @ self._kin.Ttp_gripper
 
-                q_rad = self._kin.ik("elbow_up", T_base_gripper)
+                q_rad = self._kin.ik("elbow_up_2", T_base_gripper)
                 q_deg = modified_joint_rad_to_classical_joint_deg(q_rad)
+                
+                print("q_deg:", q_deg)
 
                 if self._robot is not None:
-                    self._robot.movej(q_deg * np.pi / 180, acc=0.1, vel=0.1)
+                    self._robot.movej(q_deg * np.pi / 180, acc=AJ, vel=VJ)
 
                 frame = self.capture_frame()
                 if frame is None:
@@ -158,72 +162,79 @@ class HanoiSolver:
 
     def solve_tower_of_hanoi(self) -> None:
         n = 3
-        for hanoi_disk, from_tower, to_tower in self.TowerOfHanoi(n, 0, 2, 1):
-            block_id = self.hanoi_disk_to_marker_id[hanoi_disk]
-            print(f"Move block with ID {block_id} from tower {from_tower} to tower {to_tower}")
+        try:
+            for hanoi_disk, from_tower, to_tower in self.TowerOfHanoi(n, 0, 2, 1):
+                block_id = self.hanoi_disk_to_marker_id[hanoi_disk]
+                print(f"Move block with ID {block_id} from tower {from_tower} to tower {to_tower}")
 
-            # Search for all markers
-            markers = self.marker_search()
-            print("Detected markers and their poses in base frame:")
-            for marker_id, T_base_marker in markers.items():
-                print(f"Marker ID {marker_id}: T_base_marker:\n{T_base_marker}")
-
-            tower_centers = self.get_tower_centers(markers)
-            print("\nEstimated tower centers in base frame:")
-            for tower_id, T_tower_center in tower_centers.items():
-                print(f"Tower {tower_id}: T_tower_center:\n{T_tower_center}")
-
-            print(3 in list(markers.keys()))
-
-            # Retry until we find the block and target tower
-            while block_id not in list(markers.keys()) or to_tower not in list(tower_centers.keys()):
-                print(f"Block with ID {block_id} or tower {to_tower} not found, retrying marker search...")
+                # Search for all markers
                 markers = self.marker_search()
+                print("Detected markers and their poses in base frame:")
+                for marker_id, T_base_marker in markers.items():
+                    print(f"Marker ID {marker_id}: T_base_marker:\n{T_base_marker}")
+
                 tower_centers = self.get_tower_centers(markers)
-                time.sleep(1.0)
+                print("\nEstimated tower centers in base frame:")
+                for tower_id, T_tower_center in tower_centers.items():
+                    print(f"Tower {tower_id}: T_tower_center:\n{T_tower_center}")
 
-            # Open gripper before approach
-            if self._gripper is not None:
-                self._gripper.move_percent(0)
+                # Retry until we find the block and target tower
+                while block_id not in list(markers.keys()) or to_tower not in list(tower_centers.keys()):
+                    print(f"Block with ID {block_id} or tower {to_tower} not found, retrying marker search...")
+                    markers = self.marker_search()
+                    tower_centers = self.get_tower_centers(markers)
+                    time.sleep(1.0)
 
-            # Compute grasp pose and move to pick up
-            T_grasp_pose = get_grasp_pose(T_base_marker=markers[block_id], prism_width_m=BLOCK_WIDTHS_M[block_id])
-            q_rad = self._kin.ik("elbow_up", T_grasp_pose)
-            q_deg = modified_joint_rad_to_classical_joint_deg(q_rad)
+                # Open gripper before approach
+                if self._gripper is not None:
+                    self._gripper.move_percent(0)
 
+                # Compute grasp pose and move to pick up
+                T_grasp_pose = get_grasp_pose(T_base_marker=markers[block_id], prism_width_m=BLOCK_WIDTHS_M[block_id])
+                q_rad = self._kin.ik("elbow_up_2", T_grasp_pose)
+                q_deg = modified_joint_rad_to_classical_joint_deg(q_rad)
+
+                if self._robot is not None:
+                    self._robot.movej(q_deg * np.pi / 180, acc=AJ, vel=VJ)
+
+                # Close gripper to grasp
+                if self._gripper is not None:
+                    self._gripper.move_percent(calculate_gripper_percentage(BLOCK_WIDTHS_M[block_id]))
+
+                # Move to placement on target tower
+                T_tower_placement = tower_centers[to_tower] @ trans_z(self.tower_placement_heights[to_tower])
+                q_rad_place = self._kin.ik("elbow_up", T_tower_placement)
+                q_deg_place = modified_joint_rad_to_classical_joint_deg(q_rad_place)
+                if self._robot is not None:
+                    self._robot.movej(q_deg_place * np.pi / 180, acc=AJ, vel=VJ)
+
+                # Open gripper to release
+                if self._gripper is not None:
+                    self._gripper.move_percent(0)
+
+                # Update stacking heights
+                self.tower_placement_heights[to_tower] += BLOCK_HEIGHT_M
+                self.tower_placement_heights[from_tower] -= BLOCK_HEIGHT_M
+            
+        except KeyboardInterrupt:
+            print("Interrupted, stopping robot and releasing camera...")
+        finally:            
             if self._robot is not None:
-                self._robot.movej(q_deg * np.pi / 180, acc=0.1, vel=0.1)
-
-            # Close gripper to grasp
-            if self._gripper is not None:
-                self._gripper.move_percent(calculate_gripper_percentage(BLOCK_WIDTHS_M[block_id]))
-
-            # Move to placement on target tower
-            T_tower_placement = tower_centers[to_tower] @ trans_z(self.tower_placement_heights[to_tower])
-            q_rad_place = self._kin.ik("elbow_up", T_tower_placement)
-            q_deg_place = modified_joint_rad_to_classical_joint_deg(q_rad_place)
-            if self._robot is not None:
-                self._robot.movej(q_deg_place * np.pi / 180, acc=0.1, vel=0.1)
-
-            # Open gripper to release
-            if self._gripper is not None:
-                self._gripper.move_percent(0)
-
-            # Update stacking heights
-            self.tower_placement_heights[to_tower] += BLOCK_HEIGHT_M
-            self.tower_placement_heights[from_tower] -= BLOCK_HEIGHT_M
+                self._robot.stop()
 
 
 if __name__ == "__main__":
-    # import urx
-    # rob = urx.Robot(UR_IP)
-    # rob.set_tcp((0, 0, 0, 0, 0, 0))
-    # ...
-    # g = RobotiqGripper(UR_IP, port=63352, timeout=20.0)
-    # g.connect()
-    # g.activate()
+    import urx
+    rob = urx.Robot(UR_IP)
+    rob.set_tcp((0, 0, 0, 0, 0, 0))
+    ...
+    g = RobotiqGripper(UR_IP, port=63352, timeout=20.0)
+    g.connect()
+    g.activate()
 
-    rob = None   # <-- this was the active line
-    g = None     # <-- this was the active line
+    # rob = None   # <-- this was the active line
+    # g = None     # <-- this was the active line
     solver = HanoiSolver(robot=rob, gripper=g)
     solver.solve_tower_of_hanoi()
+    
+    
