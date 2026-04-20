@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from typing import Any
 
 import cv2
@@ -22,7 +23,7 @@ UR_IP = "192.168.0.2"
 
 BLOCK_HEIGHT_M: float = 0.05
 
-# Camera extrinsic relative to link 5 
+# Camera extrinsic relative to link 5
 T_5_cam: npt.NDArray[np.float64] = np.array(
     [
         [1.0, 0.0, 0.0, 0.0],
@@ -172,11 +173,14 @@ class HanoiSolver:
             for tower_id, T_tower_center in tower_centers.items():
                 print(f"Tower {tower_id}: T_tower_center:\n{T_tower_center}")
 
+            print(3 in list(markers.keys()))
+
             # Retry until we find the block and target tower
-            while block_id not in markers or to_tower not in tower_centers:
-                print(f"Block with ID {block_id} not detected. Retrying marker search...")
+            while block_id not in list(markers.keys()) or to_tower not in list(tower_centers.keys()):
+                print(f"Block with ID {block_id} or tower {to_tower} not found, retrying marker search...")
                 markers = self.marker_search()
                 tower_centers = self.get_tower_centers(markers)
+                time.sleep(1.0)
 
             # Open gripper before approach
             if self._gripper is not None:
