@@ -122,9 +122,10 @@ class HanoiSolver:
                 T_base_gripper = T_base_5_desired @ self._kin.T6tp @ self._kin.Ttp_gripper
 
                 q_rad = self._kin.ik("elbow_up_2", T_base_gripper)
+                if q_rad is None:
+                    self._robot.stop()
+                    raise RuntimeError(f"IK failed to find a solution for the marker search pose at (x={x:.2f}, y={y:.2f})")
                 q_deg = modified_joint_rad_to_classical_joint_deg(q_rad)
-                
-                print("q_deg:", q_deg)
 
                 if self._robot is not None:
                     self._robot.movej(q_deg * np.pi / 180, acc=AJ, vel=VJ)
@@ -190,8 +191,11 @@ class HanoiSolver:
                     self._gripper.move_percent(0)
 
                 # Compute grasp pose and move to pick up
-                T_grasp_pose = get_grasp_pose(T_base_marker=markers[block_id], prism_width_m=BLOCK_WIDTHS_M[block_id])
+                T_grasp_pose = get_grasp_pose(T_base_aruco=markers[block_id], prism_width_m=BLOCK_WIDTHS_M[block_id])
                 q_rad = self._kin.ik("elbow_up_2", T_grasp_pose)
+                if q_rad is None:
+                    self._robot.stop()
+                    raise RuntimeError(f"IK failed to find a solution for the grasp pose of block ID {block_id}")
                 q_deg = modified_joint_rad_to_classical_joint_deg(q_rad)
 
                 if self._robot is not None:
@@ -204,6 +208,9 @@ class HanoiSolver:
                 # Move to placement on target tower
                 T_tower_placement = tower_centers[to_tower] @ trans_z(self.tower_placement_heights[to_tower])
                 q_rad_place = self._kin.ik("elbow_up", T_tower_placement)
+                if q_rad_place is None:
+                    self._robot.stop()
+                    raise RuntimeError(f"IK failed to find a solution for the placement pose on tower {to_tower}")
                 q_deg_place = modified_joint_rad_to_classical_joint_deg(q_rad_place)
                 if self._robot is not None:
                     self._robot.movej(q_deg_place * np.pi / 180, acc=AJ, vel=VJ)
@@ -215,10 +222,10 @@ class HanoiSolver:
                 # Update stacking heights
                 self.tower_placement_heights[to_tower] += BLOCK_HEIGHT_M
                 self.tower_placement_heights[from_tower] -= BLOCK_HEIGHT_M
-            
+
         except KeyboardInterrupt:
             print("Interrupted, stopping robot and releasing camera...")
-        finally:            
+        finally:
             if self._robot is not None:
                 self._robot.stop()
 
@@ -236,5 +243,4 @@ if __name__ == "__main__":
     # g = None     # <-- this was the active line
     solver = HanoiSolver(robot=rob, gripper=g)
     solver.solve_tower_of_hanoi()
-    
-    
+

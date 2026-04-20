@@ -192,6 +192,29 @@ class UR10eKinematics:
             "theta_i": theta_i,
         }
 
+    def SafetyCheck(self, theta_1_6, T6t=None) -> bool:
+        theta = np.asarray(theta_1_6, dtype=float).reshape(6,)
+
+        dh = self.get_classical_dh_parameters(theta)
+
+        a = np.asarray(dh["a"], dtype=float)
+        d = np.asarray(dh["d"], dtype=float)
+        alpha = dh["alpha"]
+        theta = dh["theta"]
+
+        T = np.eye(4)
+        for i in range(6):
+            T = T @ dh_classical_tf(a[i], np.deg2rad(alpha[i]), d[i], np.deg2rad(theta[i]))
+            if T[2, 3] < 0:
+                return False
+
+        if T6t is not None:
+            T_tool = T @ T6t
+            if T_tool[2, 3] < 0:
+                return False
+
+        return True
+
     def fk_base_to_frame(
         self,
         theta_classical_deg: npt.NDArray[np.float64],
@@ -325,6 +348,15 @@ class UR10eKinematics:
         sol1 = np.array([theta_1_1, theta_2_2, theta_3_2, theta_4_2, theta_5_1, theta_6_1])
         sol2 = np.array([theta_1_2, theta_2_3, theta_3_3, theta_4_3, theta_5_2, theta_6_2])
         sol3 = np.array([theta_1_2, theta_2_4, theta_3_4, theta_4_4, theta_5_2, theta_6_2])
+
+        if self.SafetyCheck(sol0, T6t=self.T6tp @ self.Ttp_gripper):
+            return None
+        if self.SafetyCheck(sol1, T6t=self.T6tp @ self.Ttp_gripper):
+            return None
+        if self.SafetyCheck(sol2, T6t=self.T6tp @ self.Ttp_gripper):
+            return None
+        if self.SafetyCheck(sol3, T6t=self.T6tp @ self.Ttp_gripper):
+            return None
 
         if solution_type == "elbow_up":
             return sol0
