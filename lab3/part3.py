@@ -107,8 +107,8 @@ class HanoiSolver:
     def marker_search(self) -> dict[int, npt.NDArray[np.float64]]:
         # Sweep a 5x5 grid over the workspace, look down at each point, detect markers
         markers = {}
-        x_grid = np.linspace(SEARCH_BOUNDS_MIN[0], SEARCH_BOUNDS_MAX[0], 5)
-        y_grid = np.linspace(SEARCH_BOUNDS_MIN[1], SEARCH_BOUNDS_MAX[1], 5)
+        x_grid = np.linspace(SEARCH_BOUNDS_MIN[0], SEARCH_BOUNDS_MAX[0], 3)
+        y_grid = np.linspace(SEARCH_BOUNDS_MIN[1], SEARCH_BOUNDS_MAX[1], 3)
         z_view = 0.8
 
         for x in x_grid:
@@ -207,7 +207,7 @@ class HanoiSolver:
 
                 # Move to placement on target tower
                 T_tower_placement = tower_centers[to_tower] @ trans_z(self.tower_placement_heights[to_tower])
-                q_rad_place = self._kin.ik("elbow_up", T_tower_placement)
+                q_rad_place = self._kin.ik("elbow_up_2", T_tower_placement)
                 if q_rad_place is None:
                     self._robot.stop()
                     raise RuntimeError(f"IK failed to find a solution for the placement pose on tower {to_tower}")
@@ -218,6 +218,16 @@ class HanoiSolver:
                 # Open gripper to release
                 if self._gripper is not None:
                     self._gripper.move_percent(0)
+
+                # Move to placement above target tower (in case of toppling)
+                T_tower_placement = tower_centers[to_tower] @ trans_z(0.3)
+                q_rad_place = self._kin.ik("elbow_up_2", T_tower_placement)
+                if q_rad_place is None:
+                    self._robot.stop()
+                    raise RuntimeError(f"IK failed to find a solution for the placement pose on tower {to_tower}")
+                q_deg_place = modified_joint_rad_to_classical_joint_deg(q_rad_place)
+                if self._robot is not None:
+                    self._robot.movej(q_deg_place * np.pi / 180, acc=AJ, vel=VJ)
 
                 # Update stacking heights
                 self.tower_placement_heights[to_tower] += BLOCK_HEIGHT_M
