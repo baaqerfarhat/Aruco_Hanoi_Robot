@@ -63,6 +63,8 @@ class HanoiSolver:
         self._cap: cv2.VideoCapture | None = None
         if camera_source is not None:
             self._cap = cv2.VideoCapture(camera_source)
+            self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, 2304)
+            self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1536)
             if not self._cap.isOpened():
                 raise RuntimeError(f"Unable to open camera source {camera_source!r}")
 
@@ -102,13 +104,17 @@ class HanoiSolver:
         # Detect markers in image, transform poses to robot base frame
         T_base_cam = self.camera_pose_base(q_classical_deg)
         detections = self._detector.find_tags(frame)
-        return {m.marker_id: T_base_cam @ m.T_cam_marker for m in detections}
+        # print(f"T_base_cam:\n{T_base_cam}")
+        # print(f"T_cam_marker with id: {[(m.marker_id, m.T_cam_marker) for m in detections]}")
+        # print(f"T_base_marker with id: {[(m.marker_id, T_base_cam @ m.T_cam_marker) for m in detections]}")
+        # print("Res:" + frame.shape.__str__())
+        return {m.marker_id: (T_base_cam @ m.T_cam_marker) for m in detections}
 
     def marker_search(self) -> dict[int, npt.NDArray[np.float64]]:
         # Sweep a 5x5 grid over the workspace, look down at each point, detect markers
         markers = {}
-        x_grid = np.linspace(SEARCH_BOUNDS_MIN[0], SEARCH_BOUNDS_MAX[0], 3)
-        y_grid = np.linspace(SEARCH_BOUNDS_MIN[1], SEARCH_BOUNDS_MAX[1], 3)
+        x_grid = np.linspace(SEARCH_BOUNDS_MIN[0], SEARCH_BOUNDS_MAX[0], 4)
+        y_grid = np.linspace(SEARCH_BOUNDS_MIN[1], SEARCH_BOUNDS_MAX[1], 4)
         z_view = 0.8
 
         for x in x_grid:
@@ -126,16 +132,24 @@ class HanoiSolver:
                     self._robot.stop()
                     raise RuntimeError(f"IK failed to find a solution for the marker search pose at (x={x:.2f}, y={y:.2f})")
                 q_deg = modified_joint_rad_to_classical_joint_deg(q_rad)
+                # print(f"Camera pose from base: {self.camera_pose_base(q_deg)}")
 
                 if self._robot is not None:
                     self._robot.movej(q_deg * np.pi / 180, acc=AJ, vel=VJ)
+                    
+                time.sleep(1)
 
                 frame = self.capture_frame()
                 if frame is None:
                     continue
 
                 detections = self.markers_in_base_frame(frame, q_deg)
-                markers.update(detections)
+                detections_cam_marker = self._detector.find_tags(frame)
+                # print(f"Detected marker with pose in camera frame:\n{detections_cam_marker}")
+                # markers.update(detections)
+                print(f"markers_dict: {markers}")
+                
+                
 
         return markers
 

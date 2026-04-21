@@ -349,14 +349,14 @@ class UR10eKinematics:
         sol2 = np.array([theta_1_2, theta_2_3, theta_3_3, theta_4_3, theta_5_2, theta_6_2])
         sol3 = np.array([theta_1_2, theta_2_4, theta_3_4, theta_4_4, theta_5_2, theta_6_2])
 
-        if self.SafetyCheck(sol0, T6t=self.T6tp @ self.Ttp_gripper):
-            return None
-        if self.SafetyCheck(sol1, T6t=self.T6tp @ self.Ttp_gripper):
-            return None
-        if self.SafetyCheck(sol2, T6t=self.T6tp @ self.Ttp_gripper):
-            return None
-        if self.SafetyCheck(sol3, T6t=self.T6tp @ self.Ttp_gripper):
-            return None
+        # if self.SafetyCheck(sol0, T6t=self.T6tp @ self.Ttp_gripper):
+        #     return None
+        # if self.SafetyCheck(sol1, T6t=self.T6tp @ self.Ttp_gripper):
+        #     return None
+        # if self.SafetyCheck(sol2, T6t=self.T6tp @ self.Ttp_gripper):
+        #     return None
+        # if self.SafetyCheck(sol3, T6t=self.T6tp @ self.Ttp_gripper):
+        #     return None
 
         if solution_type == "elbow_up":
             return sol0
